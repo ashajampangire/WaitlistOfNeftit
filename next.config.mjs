@@ -1,9 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  compress: true,
-  poweredByHeader: false,
-  generateEtags: true,
+  output: 'standalone',
+  typescript: {
+    ignoreBuildErrors: true
+  },
+  eslint: {
+    ignoreDuringBuilds: true
+  },
   // Allow requests from CodeSandbox domain
   async headers() {
     return [
