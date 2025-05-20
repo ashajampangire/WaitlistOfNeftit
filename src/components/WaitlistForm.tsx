@@ -88,33 +88,28 @@ export function WaitlistForm() {
     setIsLoading(true)
     setError(null)
 
+    if (!email) {
+      setError("Please enter your email address")
+      setIsLoading(false)
+      return
+    }
+
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setError("Please enter a valid email address")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // Basic client-side validation
-      if (!email) {
-        throw new Error("Please enter your email address")
+      const response = await submitWaitlistEmail(email, referrer)
+      if (response.success) {
+        setUserId(response.userId || "")
+        transitionToNextStep(response.step || "twitter")
+      } else {
+        setError(response.error || "An error occurred. Please try again.")
       }
-      if (!email.includes("@")) {
-        throw new Error("Please enter a valid email address")
-      }
-
-      console.log("Submitting email:", email)
-      const result = await submitWaitlistEmail(email, referrer)
-      console.log("Submission result:", result)
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to join waitlist")
-      }
-
-      // Store user information
-      if (result.userId) {
-        setUserId(result.userId)
-      }
-
-      // Move to the next step (twitter or specified step)
-      transitionToNextStep(result.step || "twitter")
     } catch (err) {
-      console.error("Form submission error:", err)
-      setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
+      setError("We're experiencing technical difficulties. Please try again later.")
     } finally {
       setIsLoading(false)
     }
@@ -125,20 +120,21 @@ export function WaitlistForm() {
     setIsLoading(true)
     setError(null)
 
+    if (!xUsername) {
+      setError("Please enter your Twitter/X username")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // Basic validation
-      if (!xUsername) {
-        throw new Error("Please enter your X (Twitter) username")
+      const response = await updateTwitterUsername(email, xUsername)
+      if (response.success) {
+        transitionToNextStep(response.step || "discord")
+      } else {
+        setError(response.error || "Failed to update Twitter username. Please try again.")
       }
-
-      const result = await updateTwitterUsername(email, xUsername)
-      if (!result.success) {
-        throw new Error(result.error || "Failed to update Twitter username")
-      }
-
-      transitionToNextStep(result.step || "discord")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError("We're experiencing technical difficulties. Please try again later.")
     } finally {
       setIsLoading(false)
     }
@@ -149,20 +145,26 @@ export function WaitlistForm() {
     setIsLoading(true)
     setError(null)
 
+    if (!discordUsername) {
+      setError("Please enter your Discord username")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // Basic validation
-      if (!discordUsername) {
-        throw new Error("Please enter your Discord username")
+      const response = await updateDiscordUsername(email, discordUsername)
+      if (response.success) {
+        transitionToNextStep(response.step || "confirmation")
+        const referralInfo = await getUserReferralInfo(email)
+        if (referralInfo.success && referralInfo.data) {
+          setReferralLink(`${window.location.origin}?ref=${referralInfo.data.referral_code}`)
+          setReferralsCount(referralInfo.data.referral_count)
+        }
+      } else {
+        setError(response.error || "Failed to update Discord username. Please try again.")
       }
-
-      const result = await updateDiscordUsername(email, discordUsername)
-      if (!result.success) {
-        throw new Error(result.error || "Failed to update Discord username")
-      }
-
-      transitionToNextStep(result.step || "confirmation")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError("We're experiencing technical difficulties. Please try again later.")
     } finally {
       setIsLoading(false)
     }

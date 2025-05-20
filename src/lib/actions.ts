@@ -3,13 +3,21 @@
 import { supabase } from "./supabase"
 import type { WaitlistEntry, WaitlistResponse, ReferralInfo } from "./supabase"
 
-export async function submitWaitlistEmail(email: string, referrerCode?: string | null): Promise<WaitlistResponse> {
-  console.log("Submitting email:", email)
+const ERROR_MESSAGES = {
+  INVALID_EMAIL: "Please provide a valid email address.",
+  EMAIL_EXISTS: "This email is already registered. Please use a different email.",
+  INVALID_USERNAME: "Please provide a valid username.",
+  SERVER_ERROR: "An unexpected error occurred. Please try again later.",
+  DB_ERROR: "Database error occurred. Please try again later.",
+  NOT_FOUND: "User not found. Please check your email and try again.",
+  REFERRAL_ERROR: "Failed to process referral. Please try again.",
+}
 
-  if (!email) {
+export async function submitWaitlistEmail(email: string, referrerCode?: string | null): Promise<WaitlistResponse> {
+  if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
     return { 
       success: false, 
-      error: "Please provide an email address." 
+      error: ERROR_MESSAGES.INVALID_EMAIL 
     }
   }
 
@@ -19,16 +27,17 @@ export async function submitWaitlistEmail(email: string, referrerCode?: string |
       .from("waitlist")
       .select("id")
       .eq("email", email)
+      .single()
 
-    if (checkError) {
+    if (checkError && checkError.code !== 'PGRST116') {
       console.error("Error checking existing user:", checkError)
       throw checkError
     }
 
-    if (existingData && existingData.length > 0) {
+    if (existingData) {
       return { 
         success: false, 
-        error: "This email is already registered. Please use a different email." 
+        error: ERROR_MESSAGES.EMAIL_EXISTS
       }
     }
 
@@ -46,18 +55,12 @@ export async function submitWaitlistEmail(email: string, referrerCode?: string |
         },
       ])
       .select()
+      .single()
 
     if (insertError) {
       console.error("Database insert error:", insertError)
       throw insertError
     }
-
-    if (!data || data.length === 0) {
-      console.error("No data returned from insert")
-      throw new Error("Failed to create waitlist entry")
-    }
-
-    const newEntry = data[0]
 
     // If there's a referrer, increment their referral count
     if (referrerCode) {
@@ -66,64 +69,81 @@ export async function submitWaitlistEmail(email: string, referrerCode?: string |
       
       if (refError) {
         console.error("Error incrementing referral count:", refError)
+        // Don't throw here, as the main signup was successful
       }
     }
 
-    console.log("Successfully created waitlist entry:", newEntry)
-
     return { 
       success: true, 
-      data: newEntry,
-      userId: newEntry.id,
+      data,
+      userId: data.id,
       step: "twitter"
     }
   } catch (error: any) {
     console.error("Error submitting to waitlist:", error)
     return { 
       success: false, 
-      error: error?.message || "Failed to join waitlist. Please try again later." 
+      error: error?.message || ERROR_MESSAGES.SERVER_ERROR
     }
   }
 }
 
 export async function updateTwitterUsername(email: string, username: string): Promise<WaitlistResponse> {
+  if (!username) {
+    return {
+      success: false,
+      error: ERROR_MESSAGES.INVALID_USERNAME
+    }
+  }
+
   try {
     const { error } = await supabase
       .from("waitlist")
-      .update({ twitter_username: username })
+      .update({ twitter_username: username.replace(/^@/, '') }) // Remove @ if present
       .eq("email", email)
+      .single()
 
     if (error) throw error
+
     return { 
       success: true,
       step: "discord" 
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating Twitter username:", error)
     return { 
       success: false, 
-      error: "Failed to update Twitter username" 
+      error: error?.message || ERROR_MESSAGES.SERVER_ERROR
     }
   }
 }
 
 export async function updateDiscordUsername(email: string, username: string): Promise<WaitlistResponse> {
+  if (!username) {
+    return {
+      success: false,
+      error: ERROR_MESSAGES.INVALID_USERNAME
+    }
+  }
+
   try {
     const { error } = await supabase
       .from("waitlist")
       .update({ discord_username: username })
       .eq("email", email)
+      .single()
 
     if (error) throw error
+
     return { 
       success: true,
       step: "confirmation" 
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating Discord username:", error)
     return { 
       success: false, 
-      error: "Failed to update Discord username" 
+      error: error?.message || ERROR_MESSAGES.SERVER_ERROR
     }
   }
 }
@@ -137,19 +157,34 @@ export async function getUserReferralInfo(email: string): Promise<ReferralInfo> 
       .single()
 
     if (error) throw error
-    return { success: true, data }
-  } catch (error) {
-    console.error("Error getting referral info:", error)
-    return { 
-      success: false, 
-      error: "Failed to get referral information" 
+
+    if (!data) {
+      return {
+        success: false,
+        error: ERROR_MESSAGES.NOT_FOUND
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        referral_code: data.referral_code,
+        referral_count: data.referral_count
+      }
+    }
+  } catch (error: any) {
+    console.error("Error fetching referral info:", error)
+    return {
+      success: false,
+      error: error?.message || ERROR_MESSAGES.SERVER_ERROR
     }
   }
 }
 
+// Helper function to generate a unique referral code
 function generateReferralCode(length = 8): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  let result = ""
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let result = ''
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
