@@ -1,109 +1,157 @@
 "use server"
 
 import { supabase } from "./supabase"
+import type { WaitlistEntry, WaitlistResponse, ReferralInfo } from "./supabase"
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://neftit.xyz"
+export async function submitWaitlistEmail(email: string, referrerCode?: string | null): Promise<WaitlistResponse> {
+  console.log("Submitting email:", email)
 
-export async function submitWaitlistEmail(email: string, referrer?: string) {
+  if (!email) {
+    return { 
+      success: false, 
+      error: "Please provide an email address." 
+    }
+  }
+
   try {
     // Check if email already exists
-    const { data: existingUser } = await supabase
+    const { data: existingData, error: checkError } = await supabase
       .from("waitlist")
-      .select("id, x_username, discord_username")
+      .select("id")
       .eq("email", email)
-      .single()
 
-    if (existingUser) {
-      // User already exists, determine next step
-      if (!existingUser.x_username) {
-        return { success: true, userId: existingUser.id, step: "twitter" }
-      } else if (!existingUser.discord_username) {
-        return { success: true, userId: existingUser.id, step: "discord" }
-      } else {
-        return { success: true, userId: existingUser.id, step: "confirmation" }
+    if (checkError) {
+      console.error("Error checking existing user:", checkError)
+      throw checkError
+    }
+
+    if (existingData && existingData.length > 0) {
+      return { 
+        success: false, 
+        error: "This email is already registered. Please use a different email." 
       }
     }
 
-    // Find referrer ID if referrer username is provided
-    let referrerId = null
-    if (referrer) {
-      const { data: referrerData } = await supabase.from("waitlist").select("id").eq("email", referrer).single()
+    // Generate referral code
+    const referralCode = generateReferralCode()
 
-      if (referrerData) {
-        referrerId = referrerData.id
-
-        // Increment referrer's count
-        await supabase.rpc("increment_referral_count", { user_id: referrerId })
-      }
-    }
-
-    // Insert new user
-    const { data, error } = await supabase
+    // Insert new waitlist entry
+    const { data, error: insertError } = await supabase
       .from("waitlist")
       .insert([
         {
           email,
-          referrer_id: referrerId,
+          referral_code: referralCode,
+          referral_count: 0,
         },
       ])
       .select()
 
-    if (error) throw error
+    if (insertError) {
+      console.error("Database insert error:", insertError)
+      throw insertError
+    }
 
-    const userId = data[0].id
+    if (!data || data.length === 0) {
+      console.error("No data returned from insert")
+      throw new Error("Failed to create waitlist entry")
+    }
 
-    return { success: true, userId, step: "twitter" }
-  } catch (error) {
-    console.error("Error submitting email:", error)
-    return { success: false, error: "Failed to submit email. Please try again." }
+    const newEntry = data[0]
+
+    // If there's a referrer, increment their referral count
+    if (referrerCode) {
+      const { error: refError } = await supabase
+        .rpc('increment_referral_count', { referral_code: referrerCode })
+      
+      if (refError) {
+        console.error("Error incrementing referral count:", refError)
+      }
+    }
+
+    console.log("Successfully created waitlist entry:", newEntry)
+
+    return { 
+      success: true, 
+      data: newEntry,
+      userId: newEntry.id,
+      step: "twitter"
+    }
+  } catch (error: any) {
+    console.error("Error submitting to waitlist:", error)
+    return { 
+      success: false, 
+      error: error?.message || "Failed to join waitlist. Please try again later." 
+    }
   }
 }
 
-export async function updateTwitterUsername(userId: string, xUsername: string) {
+export async function updateTwitterUsername(email: string, username: string): Promise<WaitlistResponse> {
   try {
-    const { error } = await supabase.from("waitlist").update({ x_username: xUsername }).eq("id", userId)
+    const { error } = await supabase
+      .from("waitlist")
+      .update({ twitter_username: username })
+      .eq("email", email)
 
     if (error) throw error
-
-    return { success: true, step: "discord" }
+    return { 
+      success: true,
+      step: "discord" 
+    }
   } catch (error) {
     console.error("Error updating Twitter username:", error)
-    return { success: false, error: "Failed to update Twitter username. Please try again." }
+    return { 
+      success: false, 
+      error: "Failed to update Twitter username" 
+    }
   }
 }
 
-export async function updateDiscordUsername(userId: string, discordUsername: string) {
+export async function updateDiscordUsername(email: string, username: string): Promise<WaitlistResponse> {
   try {
-    const { error } = await supabase.from("waitlist").update({ discord_username: discordUsername }).eq("id", userId)
+    const { error } = await supabase
+      .from("waitlist")
+      .update({ discord_username: username })
+      .eq("email", email)
 
     if (error) throw error
-
-    return { success: true, step: "confirmation" }
+    return { 
+      success: true,
+      step: "confirmation" 
+    }
   } catch (error) {
     console.error("Error updating Discord username:", error)
-    return { success: false, error: "Failed to update Discord username. Please try again." }
+    return { 
+      success: false, 
+      error: "Failed to update Discord username" 
+    }
   }
 }
 
-export async function getUserReferralInfo(userId: string) {
+export async function getUserReferralInfo(email: string): Promise<ReferralInfo> {
   try {
-    const { data, error } = await supabase.from("waitlist").select("email, referrals_count").eq("id", userId).single()
+    const { data, error } = await supabase
+      .from("waitlist")
+      .select("referral_code, referral_count")
+      .eq("email", email)
+      .single()
 
     if (error) throw error
-
-    const referralLink = `${siteUrl}/waitlist?ref=${encodeURIComponent(data.email)}`
-
-    return {
-      success: true,
-      referralLink,
-      referralsCount: data.referrals_count,
-    }
+    return { success: true, data }
   } catch (error) {
     console.error("Error getting referral info:", error)
-    return {
-      success: false,
-      referralLink: `${siteUrl}/waitlist`,
-      referralsCount: 0,
+    return { 
+      success: false, 
+      error: "Failed to get referral information" 
     }
   }
+}
+
+function generateReferralCode(length = 8): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  let result = ""
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
 }

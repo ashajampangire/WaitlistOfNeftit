@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
@@ -12,12 +11,11 @@ import { SocialButton } from "./SocialButton"
 import { ShareButton } from "./ShareButton"
 import { BackButton } from "./BackButton"
 import { submitWaitlistEmail, updateTwitterUsername, updateDiscordUsername, getUserReferralInfo } from "../lib/actions"
-
-type WaitlistStep = "email" | "twitter" | "discord" | "confirmation"
+import type { WaitlistStep } from "../lib/supabase"
 
 export function WaitlistForm() {
   const [step, setStep] = useState<WaitlistStep>("email")
-  const [userId, setUserId] = useState<string>("")
+  const [userId, setUserId] = useState("")
   const [email, setEmail] = useState("")
   const [xUsername, setXUsername] = useState("")
   const [discordUsername, setDiscordUsername] = useState("")
@@ -29,7 +27,7 @@ export function WaitlistForm() {
   const [animation, setAnimation] = useState<"enter" | "exit" | null>(null)
 
   // Get referrer from URL if available
-  const referrer = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("ref") : undefined
+  const referrer = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("ref") : null
 
   // Handle page transitions
   const transitionToNextStep = (nextStep: WaitlistStep) => {
@@ -70,27 +68,53 @@ export function WaitlistForm() {
     }, 300)
   }, [])
 
+  useEffect(() => {
+    if (userId && step === "confirmation") {
+      // Fetch referral info when reaching confirmation step
+      const fetchReferralInfo = async () => {
+        const referralInfo = await getUserReferralInfo(email)
+        if (referralInfo.success && referralInfo.data) {
+          const { referral_code, referral_count } = referralInfo.data
+          setReferralLink(`${window.location.origin}?ref=${referral_code}`)
+          setReferralsCount(referral_count)
+        }
+      }
+      fetchReferralInfo()
+    }
+  }, [userId, step, email])
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
 
     try {
-      // Basic validation
-      if (!email || !email.includes("@")) {
+      // Basic client-side validation
+      if (!email) {
+        throw new Error("Please enter your email address")
+      }
+      if (!email.includes("@")) {
         throw new Error("Please enter a valid email address")
       }
 
+      console.log("Submitting email:", email)
       const result = await submitWaitlistEmail(email, referrer)
+      console.log("Submission result:", result)
 
-      if (result.success) {
-        setUserId(result.userId)
-        transitionToNextStep(result.step as WaitlistStep)
-      } else {
-        throw new Error(result.error || "Something went wrong")
+      if (!result.success) {
+        throw new Error(result.error || "Failed to join waitlist")
       }
+
+      // Store user information
+      if (result.userId) {
+        setUserId(result.userId)
+      }
+
+      // Move to the next step (twitter or specified step)
+      transitionToNextStep(result.step || "twitter")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      console.error("Form submission error:", err)
+      setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -107,16 +131,12 @@ export function WaitlistForm() {
         throw new Error("Please enter your X (Twitter) username")
       }
 
-      // Remove @ if user included it
-      const cleanUsername = xUsername.startsWith("@") ? xUsername.substring(1) : xUsername
-
-      const result = await updateTwitterUsername(userId, cleanUsername)
-
-      if (result.success) {
-        transitionToNextStep(result.step as WaitlistStep)
-      } else {
-        throw new Error(result.error || "Something went wrong")
+      const result = await updateTwitterUsername(email, xUsername)
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update Twitter username")
       }
+
+      transitionToNextStep(result.step || "discord")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -135,20 +155,12 @@ export function WaitlistForm() {
         throw new Error("Please enter your Discord username")
       }
 
-      const result = await updateDiscordUsername(userId, discordUsername)
-
-      if (result.success) {
-        // Get referral info for confirmation page
-        const referralInfo = await getUserReferralInfo(userId)
-        if (referralInfo.success) {
-          setReferralLink(referralInfo.referralLink)
-          setReferralsCount(referralInfo.referralsCount)
-        }
-
-        transitionToNextStep(result.step as WaitlistStep)
-      } else {
-        throw new Error(result.error || "Something went wrong")
+      const result = await updateDiscordUsername(email, discordUsername)
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update Discord username")
       }
+
+      transitionToNextStep(result.step || "confirmation")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
