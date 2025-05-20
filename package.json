@@ -6,9 +6,9 @@
     "build": "next build",
     "start": "cross-env PORT=3001 next start",
     "lint": "next lint",
-    "csb:dev": "cross-env PORT=3001 HOSTNAME=0.0.0.0 next dev",
-    "csb:build": "next build",
-    "csb:start": "cross-env PORT=3001 HOSTNAME=0.0.0.0 next start"
+    "csb:dev": "cross-env NODE_ENV=development HOSTNAME=0.0.0.0 PORT=3001 next dev",
+    "csb:build": "cross-env NODE_ENV=production next build",
+    "csb:start": "cross-env NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3001 next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

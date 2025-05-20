@@ -4,45 +4,53 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
+  // Allow requests from CodeSandbox domain
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-Requested-With, Content-Type, Authorization' },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' }
         ],
       },
     ]
   },
-  // Optimize for CodeSandbox
+  // Optimize for CodeSandbox environment
   webpack: (config, { isServer }) => {
     // Optimize chunk size
     config.optimization.splitChunks = {
       chunks: 'all',
       minSize: 20000,
       maxSize: 70000,
-      cacheGroups: {
-        default: false,
-        vendors: false,
-        commons: {
-          name: 'commons',
-          chunks: 'all',
-          minChunks: 2,
-        },
-      },
     };
-
     return config;
   },
-  // Optimize memory usage
+  // Optimize for edge environment
   experimental: {
     optimizeCss: true,
     memoryBasedWorkersCount: true,
   },
-  // Configure proper output for CodeSandbox
-  output: 'standalone',
+  // Remove trailing slashes and handle CodeSandbox domains
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/:path*',
+          has: [
+            {
+              type: 'host',
+              value: '(?<host>.*)',
+            },
+          ],
+          destination: '/:path*',
+        },
+      ],
+    }
+  },
 }
 
 export default nextConfig;

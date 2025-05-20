@@ -1,7 +1,11 @@
-{  "container": {
+{
+  "container": {
     "node": "20",
     "port": 3001,
-    "startScript": "csb:dev"
+    "startScript": "csb:dev",
+    "env": {
+      "NODE_ENV": "development"
+    }
   },
   "hardReloadOnChange": false,
   "infiniteLoopProtection": true,
