@@ -1,0 +1,32 @@
+{
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "npm install --legacy-peer-deps"
+    }
+  ],
+  "tasks": {
+    "dev": {
+      "name": "Development",
+      "command": "npm run csb:dev",
+      "runAtStart": true,
+      "preview": {
+        "port": 3001
+      }
+    },
+    "build": {
+      "name": "Production Build",
+      "command": "npm run csb:build",
+      "preview": {
+        "port": 3001
+      }
+    },
+    "start": {
+      "name": "Production Server",
+      "command": "npm run csb:start",
+      "preview": {
+        "port": 3001
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{  "container": {
+    "node": "20",
+    "port": 3001,
+    "startScript": "csb:dev"
+  },
+  "hardReloadOnChange": false,
+  "infiniteLoopProtection": true,
+  "template": "next",
+  "node": "20"
+}
