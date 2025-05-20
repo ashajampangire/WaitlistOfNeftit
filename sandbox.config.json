@@ -1,7 +1,0 @@
-{
-  "infiniteLoopProtection": true,
-  "hardReloadOnChange": false,
-  "template": "nextjs",
-  "node": "20",
-  "port": 3000
-}

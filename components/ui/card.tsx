@@ -1,79 +1,75 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
-      className
-    )}
-    {...props}
-  />
-))
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => {
+  const baseClasses = "rounded-lg border border-gray-700 bg-gray-800 shadow-sm"
+
+  const classes = `${baseClasses} ${className || ""}`
+
+  return <div className={classes} ref={ref} {...props} />
+})
+
 Card.displayName = "Card"
 
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
-    {...props}
-  />
-))
+interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(({ className, ...props }, ref) => {
+  const baseClasses = "flex flex-col space-y-1.5 p-6"
+
+  const classes = `${baseClasses} ${className || ""}`
+
+  return <div className={classes} ref={ref} {...props} />
+})
+
 CardHeader.displayName = "CardHeader"
 
-const CardTitle = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "text-2xl font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
+interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+
+export const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(({ className, ...props }, ref) => {
+  const baseClasses = "text-2xl font-semibold leading-none tracking-tight text-white"
+
+  const classes = `${baseClasses} ${className || ""}`
+
+  return <h3 className={classes} ref={ref} {...props} />
+})
+
 CardTitle.displayName = "CardTitle"
 
-const CardDescription = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
+interface CardDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+
+export const CardDescription = React.forwardRef<HTMLParagraphElement, CardDescriptionProps>(
+  ({ className, ...props }, ref) => {
+    const baseClasses = "text-sm text-gray-400"
+
+    const classes = `${baseClasses} ${className || ""}`
+
+    return <p className={classes} ref={ref} {...props} />
+  },
+)
+
 CardDescription.displayName = "CardDescription"
 
-const CardContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-))
+interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(({ className, ...props }, ref) => {
+  const baseClasses = "p-6 pt-0"
+
+  const classes = `${baseClasses} ${className || ""}`
+
+  return <div className={classes} ref={ref} {...props} />
+})
+
 CardContent.displayName = "CardContent"
 
-const CardFooter = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
-    {...props}
-  />
-))
-CardFooter.displayName = "CardFooter"
+interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(({ className, ...props }, ref) => {
+  const baseClasses = "flex items-center p-6 pt-0"
+
+  const classes = `${baseClasses} ${className || ""}`
+
+  return <div className={classes} ref={ref} {...props} />
+})
+
+CardFooter.displayName = "CardFooter"
